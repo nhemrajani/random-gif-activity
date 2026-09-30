@@ -64,3 +64,23 @@ func TestPageShowsGIFFromList(t *testing.T) {
 		t.Error("image has no alt text")
 	}
 }
+
+func TestReloadChangesGIF(t *testing.T) {
+	if len(allGIFs) < 2 {
+		t.Fatalf("only %d GIFs loaded", len(allGIFs))
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 50; i++ {
+		seen[gifFromPage(t, get(t, "/").Body.String())] = true
+	}
+	if len(seen) < 2 {
+		t.Errorf("50 reloads showed only %d distinct GIF(s)", len(seen))
+	}
+}
+
+func TestParseGIFsDropsBlanksAndDuplicates(t *testing.T) {
+	got := parseGIFs("a\n\nb\na\n")
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Errorf("parseGIFs = %q, want [a b]", got)
+	}
+}
