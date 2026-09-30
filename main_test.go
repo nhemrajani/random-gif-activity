@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -82,5 +83,57 @@ func TestParseGIFsDropsBlanksAndDuplicates(t *testing.T) {
 	got := parseGIFs("a\n\nb\na\n")
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Errorf("parseGIFs = %q, want [a b]", got)
+	}
+}
+
+func TestSearchWordsUseListedGIFs(t *testing.T) {
+	for word, gifs := range gifsByWord {
+		for _, g := range gifs {
+			if !slices.Contains(allGIFs, g) {
+				t.Errorf("%s GIF %q is not in gifs.txt", word, g)
+			}
+		}
+	}
+}
+
+func TestSearchCatAndPuppy(t *testing.T) {
+	for _, q := range []string{"cat", "puppy", "CAT", "%20puppy%20"} {
+		word := strings.ToLower(strings.Trim(q, "%20"))
+		for i := 0; i < 20; i++ {
+			src := gifFromPage(t, get(t, "/?q="+q).Body.String())
+			if !slices.Contains(gifsByWord[word], src) {
+				t.Fatalf("q=%s showed %q, not a %s GIF", q, src, word)
+			}
+		}
+	}
+}
+
+func TestSearchUnknownOrEmpty(t *testing.T) {
+	rec := get(t, "/?q=zebra")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	gifFromPage(t, body)
+	if !strings.Contains(body, "Try cat or puppy") {
+		t.Error("unknown query shows no helpful message")
+	}
+
+	body = get(t, "/?q=").Body.String()
+	gifFromPage(t, body)
+	if strings.Contains(body, "Try cat or puppy") {
+		t.Error("empty query should not show the no-results message")
+	}
+}
+
+func TestSearchFormAndEscaping(t *testing.T) {
+	body := get(t, "/?q=%3Cscript%3E").Body.String()
+	for _, want := range []string{`method="get"`, `action="/"`, `name="q"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("form is missing %s", want)
+		}
+	}
+	if strings.Contains(body, "<script>") {
+		t.Error("query was not HTML-escaped")
 	}
 }
