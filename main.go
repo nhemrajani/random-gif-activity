@@ -1,13 +1,15 @@
 package main
 
 import (
-	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
 )
 
-const page = `<!doctype html>
+const gifBase = "https://s3.amazonaws.com/files.656.mba/mgt656/fall-2026/random-gifs/adorbs/"
+
+var page = template.Must(template.New("page").Parse(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -15,8 +17,13 @@ const page = `<!doctype html>
 </head>
 <body style="background-color: #fde2e4; font-family: sans-serif; text-align: center;">
   <h1>Random GIF</h1>
+  <img src="{{.GIF}}" alt="A cute animal">
 </body>
-</html>`
+</html>`))
+
+type pageData struct {
+	GIF string
+}
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -24,7 +31,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := fmt.Fprint(w, page); err != nil {
+	if err := page.Execute(w, pageData{GIF: gifBase + "CatPat.gif"}); err != nil {
 		log.Printf("write response: %v", err)
 	}
 }
